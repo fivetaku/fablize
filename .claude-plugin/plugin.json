@@ -1,0 +1,8 @@
+{
+  "name": "fablize",
+  "version": "2.0.0",
+  "description": "A harness that makes Opus (or any Claude model) behave like Fable. It enforces completion, evidence, and verification as procedure, and auto-routes the right verified pack per task: render-output verification, a multi-story evidence gate, an investigation protocol, and an early-stop guard. It does not fake model capability — see README for the full analysis of what transfers and what does not.",
+  "author": { "name": "fivetaku", "email": "gptaku.ai@gmail.com" },
+  "keywords": ["harness", "verification", "completion", "opus", "fable", "agentic"],
+  "skills": ["./skills/fablize"]
+}

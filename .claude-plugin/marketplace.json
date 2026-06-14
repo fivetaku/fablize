@@ -1,0 +1,16 @@
+{
+  "name": "fablize",
+  "owner": { "name": "fivetaku", "email": "gptaku.ai@gmail.com" },
+  "metadata": {
+    "description": "fablize — a harness that makes Opus behave like Fable (completion, evidence, verification as procedure)",
+    "version": "2.0.0"
+  },
+  "plugins": [
+    {
+      "name": "fablize",
+      "source": "./",
+      "description": "A harness that makes Opus behave like Fable. Ships only the verified-effect procedures distilled from a Fable-5-vs-Opus-4.8 comparison: render-output verification, multi-story evidence gate, investigation protocol, early-stop guard, plus per-task routing. Capability gaps are not faked — see README.",
+      "category": "workflow"
+    }
+  ]
+}

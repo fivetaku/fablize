@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+*.fablize-bak.*
+.DS_Store
+.fablize/
