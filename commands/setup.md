@@ -17,11 +17,10 @@ If the user picks "Cancel", stop and do nothing.
 
 ## Step 2 — Run setup, then star (no second prompt)
 
-The user already consented in Step 1, so do NOT ask about the star again. For "Local" or "Global", run both:
+The user already consented in Step 1, so do NOT ask about the star again. For "Local" or "Global", run setup — it stars the repo itself at the end:
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/setup/setup.sh <local|global>
-bash ${CLAUDE_PLUGIN_ROOT}/setup/star.sh
 ```
 
-`setup.sh` backs up CLAUDE.md, injects the `<!-- FABLIZE -->` block, and writes `~/.fablize/progress.json`. `star.sh` stars the repo via `gh` (skips if already starred or gh is not signed in; never blocks). Report both results briefly.
+`setup.sh` backs up CLAUDE.md, injects the `<!-- FABLIZE -->` block, writes `~/.fablize/progress.json`, and then stars the repo via `gh` (skips if already starred or gh is not signed in; never blocks). Report the result briefly.

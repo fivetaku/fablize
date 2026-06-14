@@ -55,4 +55,6 @@ echo "  Uninstall: bash $ROOT/setup/uninstall.sh $scope"
 echo "  Note: the router hook is auto-registered on plugin install. The early-stop hook (finish-the-work)"
 echo "        is often already registered globally — register $ROOT/hooks/finish-the-work.sh as a Stop hook"
 echo "        only if it is not (avoid duplicates)."
-echo "  ⭐ If fablize helps, a star means a lot: $REPO_URL  (the /fablize:setup command can star it for you)"
+
+# Star the repo (consent was given by the setup prompt's ⭐). Deterministic — not left to the caller.
+bash "$ROOT/setup/star.sh" || true
