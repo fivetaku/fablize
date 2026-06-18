@@ -2,10 +2,12 @@
 """Stop-time decision for the fablize observation gate.
 
 The decision is made purely from observed ledger state — never from the
-assistant's claim text — so it is language-agnostic. It blocks a non-quick,
-non-docs task that changed files but has no OBSERVED successful verification.
-This catches "I changed code and tests pass" when no test was ever run, or ran
-and failed. Complementary to finish-the-work.sh (which catches promise-no-act).
+assistant's claim text — so it is language-agnostic. Deep-only: it blocks a
+DEEP, non-docs task that changed files but has no OBSERVED successful
+verification. This catches "I changed code and tests pass" when no test was
+ever run, or ran and failed. Normal mode no longer hard-blocks (deep-only —
+measured noise with no proven benefit). Complementary to finish-the-work.sh
+(which catches promise-no-act).
 """
 
 from __future__ import annotations
@@ -46,8 +48,9 @@ def should_block_stop(ledger: dict[str, Any]) -> tuple[bool, str]:
             return True, "fablize gate: run the narrowest verification command for the changed behavior before final response, or record why none applies."
         if not has_any_verification(ledger):
             return True, "fablize gate: add one observable proof, or explicitly record why this deep task has no runnable verifier."
-    if mode == "normal" and changed and not verified:
-        return True, "fablize gate: run one relevant verification command for the changed files, or state why no verifier applies."
+    # deep-only: normal mode no longer hard-blocks. Measured 0 proven benefit +
+    # ~7 firings/session of observable noise (see docs/MEASUREMENT_PROTOCOL.md);
+    # normal still gets an advisory prompt nudge, just no Stop block.
     return False, ""
 
 
