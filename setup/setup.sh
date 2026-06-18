@@ -5,6 +5,11 @@
 # Usage: setup.sh [global|local]   (no arg = interactive; default local)
 set -euo pipefail
 
+# Windows/Git Bash consoles default to a legacy codepage (e.g. cp949) that cannot
+# encode the status glyph the embedded python prints (✓); force UTF-8 so setup
+# does not abort with UnicodeEncodeError. No-op on platforms already using UTF-8.
+export PYTHONUTF8=1
+
 ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 BLOCK_TPL="$ROOT/setup/fablize-block.md"
 REPO_URL="https://github.com/fivetaku/fablize"

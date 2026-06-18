@@ -4,6 +4,10 @@
 # Usage: uninstall.sh [global|local]
 set -euo pipefail
 
+# Force UTF-8 so the embedded python's status glyph (✓) does not crash on a legacy
+# Windows codepage (e.g. cp949). No-op on platforms that already use UTF-8.
+export PYTHONUTF8=1
+
 scope="${1:-}"
 if [ -z "$scope" ]; then
   printf "fablize — remove the operating block from: [l]ocal / [g]lobal: "

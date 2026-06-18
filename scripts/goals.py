@@ -21,6 +21,15 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+# Windows consoles default to a legacy codepage (e.g. cp949 on Korean Windows)
+# that cannot encode the glyphs this tool prints (— ★ ✓ ▶ →). Force UTF-8 so the
+# engine never crashes on output. No-op where stdout is already UTF-8.
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+except Exception:
+    pass
+
 DIR = Path(".fablize")
 GOALS = DIR / "goals.json"
 LEDGER = DIR / "ledger.jsonl"
