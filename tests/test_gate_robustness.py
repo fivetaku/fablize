@@ -84,6 +84,13 @@ run("gate_post_tool.py", {"tool_name": "Edit", "tool_input": {"file_path": "cour
 p_kr = run("gate_stop.py", {"session_id": "E", "cwd": "/w", "stop_hook_active": False}, dd)
 check("KO lecture prompt (quick default) -> allow", not blocks(p_kr))
 
+# --- F. deep-only: a NORMAL task + code edit + no verification -> allow (no hard block) ---
+dd = tempfile.mkdtemp(prefix="fz_")
+run("gate_prompt.py", {"prompt": "fix the login bug in the parser", "session_id": "F", "cwd": "/w"}, dd)
+run("gate_post_tool.py", {"tool_name": "Edit", "tool_input": {"file_path": "src/login.py", "old_string": "a", "new_string": "b"}, "session_id": "F", "cwd": "/w"}, dd)
+p_normal = run("gate_stop.py", {"session_id": "F", "cwd": "/w", "stop_hook_active": False}, dd)
+check("deep-only: normal task changed+unverified -> allow (no block)", not blocks(p_normal))
+
 print("=" * 80)
 print("fablize observation gate — robustness / safety checks")
 print("=" * 80)
