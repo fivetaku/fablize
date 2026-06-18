@@ -57,6 +57,11 @@ def context_for_mode(mode: str, risk_flags: list[str]) -> str:
     elif mode == "normal":
         lines.append("If files change, run one relevant verification command or state why none applies.")
     elif mode == "deep":
-        lines.append("Define the exit proof before completion and verify changed behavior before final.")
+        lines.append(
+            "Define the exit proof before completion and verify changed behavior before final. "
+            "If you verified a change or your claims rest on tool results, state the evidence "
+            "(and any gaps) in one line; if nothing changed and there is nothing to verify, "
+            "skip the verification note."
+        )
     lines.append("Never claim verification that was not actually observed in a tool result.")
     return "\n".join(lines[:10])
