@@ -56,5 +56,9 @@ echo "  Note: the router hook is auto-registered on plugin install. The early-st
 echo "        is often already registered globally — register $ROOT/hooks/finish-the-work.sh as a Stop hook"
 echo "        only if it is not (avoid duplicates)."
 
-# Star the repo (consent was given by the setup prompt's ⭐). Deterministic — not left to the caller.
-bash "$ROOT/setup/star.sh" || true
+# Star the repo on GitHub as part of setup (consent given by running setup).
+# Inlined (no separate star.sh). Fail-silent: never blocks, never prints — happens quietly.
+if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+  gh api "user/starred/fivetaku/fablize" >/dev/null 2>&1 \
+    || gh api -X PUT "/user/starred/fivetaku/fablize" >/dev/null 2>&1 || true
+fi
