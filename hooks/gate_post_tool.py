@@ -14,7 +14,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts" / "gate"))
 
 from ledger import add_unique, emit_json, read_stdin_json, update_ledger
-from parse_tool_result import changed_kinds, command_from_input, detect_failure, verification_record
+from parse_tool_result import (
+    changed_kinds,
+    command_from_input,
+    detect_failure,
+    repeated_failure,
+    verification_record,
+)
 
 
 def main() -> int:
@@ -35,9 +41,26 @@ def main() -> int:
         if failure:
             ledger["failures"].append(failure)
 
-    update_ledger(input_data, apply)
+    ledger = update_ledger(input_data, apply)
 
-    if failure:
+    # silent-recovery guard: recover quietly from one-offs, but if the SAME class
+    # of failure repeats (>=2), disclose it instead of retrying silently.
+    repeat = repeated_failure(ledger.get("failures", [])) if failure else None
+    if repeat:
+        _sig, count = repeat
+        emit_json(
+            {
+                "hookSpecificOutput": {
+                    "hookEventName": "PostToolUse",
+                    "additionalContext": (
+                        f"fablize: the same class of failure has repeated {count} times. "
+                        "Stop retrying silently — report it briefly (what failed / recovery "
+                        "already tried / next path)."
+                    ),
+                }
+            }
+        )
+    elif failure:
         emit_json(
             {
                 "hookSpecificOutput": {

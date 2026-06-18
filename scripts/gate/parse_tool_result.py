@@ -132,3 +132,27 @@ def verification_record(input_data: dict[str, Any]) -> dict[str, Any] | None:
         "success": bool(success) if success is not None else None,
         "summary": redact(text, 220),
     }
+
+
+def _failure_signature(summary: str) -> str:
+    """Normalize a failure summary into a stable class key. Numbers and paths
+    differ between occurrences of the same failure, so collapse them so that
+    e.g. two 'ECONNREFUSED localhost:5432' land on the same class."""
+    s = (summary or "").lower()
+    s = re.sub(r"[/\\][^\s]+", " path ", s)   # paths vary
+    s = re.sub(r"\d+", "#", s)                # numbers vary
+    s = re.sub(r"\s+", " ", s).strip()
+    return s[:80]
+
+
+def repeated_failure(failures: list[dict[str, Any]], threshold: int = 2) -> tuple[str, int] | None:
+    """If the most recent failure's class has occurred `threshold`+ times in the
+    ledger, return (signature, count). Drives the silent-recovery guard: recover
+    quietly from one-offs, but disclose a repeating failure class."""
+    if not failures:
+        return None
+    sig = _failure_signature(failures[-1].get("summary", ""))
+    if not sig:
+        return None
+    count = sum(1 for f in failures if _failure_signature(f.get("summary", "")) == sig)
+    return (sig, count) if count >= threshold else None
