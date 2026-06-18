@@ -3,3 +3,9 @@ __pycache__/
 *.fablize-bak.*
 .DS_Store
 .fablize/
+# internal goal scaffolding — personal absolute paths, not part of the product
+docs/measurement-goal/
+# internal R&D records — personal paths + private-workspace (axwith) refs + PII notes
+docs/HANDOFF-dynamic-effort-delegation.md
+docs/SESSION-2026-06-17-effort-investigation.md
+docs/research/
