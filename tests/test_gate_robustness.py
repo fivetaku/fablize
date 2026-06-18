@@ -91,6 +91,12 @@ run("gate_post_tool.py", {"tool_name": "Edit", "tool_input": {"file_path": "src/
 p_normal = run("gate_stop.py", {"session_id": "F", "cwd": "/w", "stop_hook_active": False}, dd)
 check("deep-only: normal task changed+unverified -> allow (no block)", not blocks(p_normal))
 
+# --- G. deep turn that changed NOTHING (analysis/audit) -> allow (no "add observable" nag) ---
+dd = tempfile.mkdtemp(prefix="fz_")
+run("gate_prompt.py", {"prompt": "thoroughly audit the security of this module", "session_id": "G", "cwd": "/w"}, dd)
+p_analysis = run("gate_stop.py", {"session_id": "G", "cwd": "/w", "stop_hook_active": False}, dd)
+check("deep analysis, no change -> allow (no false-positive nag)", not blocks(p_analysis))
+
 print("=" * 80)
 print("fablize observation gate — robustness / safety checks")
 print("=" * 80)
