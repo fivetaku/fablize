@@ -18,10 +18,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); versioning is [S
 ### Changed
 - **게이트 deep-only + 변경 있을 때만** — normal 모드 hard-block 제거, deep도 *변경 없는* 턴(분석/문서/리딩)엔 발화 안 함. 실측상 발화 노이즈 ~2/3 감소. 진짜 위험("deep에서 코드 바꾸고 검증 안 함")만 차단.
 - **deep 프롬프트 넛지** — 증거/gap 노트는 *실체가 있을 때만*(검증했거나 주장이 tool result에 근거) 한 줄, 사소한 턴엔 생략. 의례용 보일러플레이트 제거.
-- **setup** — star가 setup.sh 안에서 조용히 처리(⭐ 프롬프트 제거).
+- **setup** — setup 흐름 정리(단일 up-front 질문, 내부 헬퍼를 setup.sh에 인라인).
 
 ### Removed
-- `setup/star.sh` — setup.sh에 인라인.
+- 내부 setup 헬퍼 스크립트 — setup.sh에 인라인.
 - `has_any_verification()` — 게이트 축소 후 미사용.
 
 ### Notes (정직성)
