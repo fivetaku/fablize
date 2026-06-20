@@ -12,7 +12,17 @@ REPO_URL="https://github.com/fivetaku/fablize"
 command -v python3 >/dev/null 2>&1 || { echo "fablize: python3 is required."; exit 1; }
 [ -f "$BLOCK_TPL" ] || { echo "fablize: block template not found ($BLOCK_TPL)"; exit 1; }
 
-scope="${1:-}"
+# Parse args: first non-flag arg is scope; --no-star suppresses the gh star call.
+no_star=false
+scope=""
+for arg in "$@"; do
+  case "$arg" in
+    --no-star) no_star=true;;
+    -*) ;;
+    *) [ -z "$scope" ] && scope="$arg";;
+  esac
+done
+
 if [ -z "$scope" ]; then
   printf "fablize — inject the operating block into: [l]ocal (this project, recommended) / [g]lobal (all projects): "
   read -r ans
@@ -56,9 +66,9 @@ echo "  Note: the router hook is auto-registered on plugin install. The early-st
 echo "        is often already registered globally — register $ROOT/hooks/finish-the-work.sh as a Stop hook"
 echo "        only if it is not (avoid duplicates)."
 
-# Star the repo on GitHub as part of setup (consent given by running setup).
-# Inlined (no separate star.sh). Fail-silent: never blocks, never prints — happens quietly.
-if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+# Star the repo on GitHub (skipped if --no-star was passed).
+# Fail-silent: never blocks, never prints — happens quietly.
+if [ "$no_star" = "false" ] && command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
   gh api "user/starred/fivetaku/fablize" >/dev/null 2>&1 \
     || gh api -X PUT "/user/starred/fivetaku/fablize" >/dev/null 2>&1 || true
 fi

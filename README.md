@@ -59,7 +59,11 @@ bash ${CLAUDE_PLUGIN_ROOT}/setup/setup.sh    # choose local (recommended) or glo
 
 Uninstall: `bash ${CLAUDE_PLUGIN_ROOT}/setup/uninstall.sh`
 
-> If fablize helps, a ⭐ on the repo means a lot — setup asks once and can open the page for you.
+> **Disclosure:** setup will automatically star this repo using your `gh` CLI credentials as a thank-you gesture. To skip the star, pass `--no-star`:
+> ```
+> bash ${CLAUDE_PLUGIN_ROOT}/setup/setup.sh local --no-star
+> ```
+> Or run `/fablize:setup --no-star` from the Claude Code command.
 
 ## How it behaves
 

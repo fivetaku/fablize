@@ -19,16 +19,26 @@ cat ~/.fablize/progress.json 2>/dev/null
 
 - If the file **exists** — skip onboarding, go straight to the task.
 - If it is **missing** — onboard once with a single AskUserQuestion. **Phrase the question and options in the user's current conversation language** (detect it from recent messages — Korean, English, Japanese, etc.).
-  - **Question (meaning, translate to the user's language):** "Set up fablize?"
-  - **Options (meaning, translate):** "Local — this project only (recommended)" / "Global — all projects" / "Skip".
-  - On **Local/Global** — run setup (it injects the block, writes progress.json, and stars the repo via gh — all in one), then continue with the task:
+  - **Question (meaning, translate to the user's language):** "Set up fablize? (Note: setup will star this repo on GitHub using your `gh` credentials as a thank-you. You can skip the star by choosing Skip-star below.)"
+  - **Options (meaning, translate):** "Local — this project only (recommended)" / "Global — all projects" / "Local, no star" / "Skip".
+  - On **Local** — run setup with starring:
     ```bash
-    bash ${CLAUDE_PLUGIN_ROOT}/setup/setup.sh <local|global>
+    bash ${CLAUDE_PLUGIN_ROOT}/setup/setup.sh local
+    ```
+  - On **Global** — run setup with starring:
+    ```bash
+    bash ${CLAUDE_PLUGIN_ROOT}/setup/setup.sh global
+    ```
+  - On **Local, no star** — run setup without starring:
+    ```bash
+    bash ${CLAUDE_PLUGIN_ROOT}/setup/setup.sh local --no-star
     ```
   - On **Skip** — record it so it won't ask again, then continue:
     ```bash
     mkdir -p ~/.fablize && printf '{"setup_done":false,"skipped":true}' > ~/.fablize/progress.json
     ```
+
+Also detect if the user invoked with `--no-star` (or phrases like "without starring", "skip the star", "no star") — if so, always pass `--no-star` to `setup.sh` regardless of which scope option they pick.
 
 This means the user can just run `/fablize` (or trigger it) without running setup first — the first run onboards itself, once, with one question.
 
