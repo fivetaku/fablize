@@ -14,6 +14,11 @@ if [ "$active" = "True" ]; then exit 0; fi
 
 tpath=$(printf '%s' "$input" | python3 -c "import sys,json; print(json.load(sys.stdin).get('transcript_path',''))" 2>/dev/null || echo "")
 if [ -z "$tpath" ] || [ ! -f "$tpath" ]; then exit 0; fi
+# Reject paths outside TMPDIR or HOME to block path-traversal via crafted hook input.
+case "$tpath" in
+    "${TMPDIR:-/tmp}"/* | "$HOME"/*) ;;
+    *) exit 0 ;;
+esac
 
 # Extract the last assistant message's text and whether it ended with a tool call.
 python3 - "$tpath" <<'PY'
