@@ -59,7 +59,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/setup/setup.sh    # choose local (recommended) or glo
 
 Uninstall: `bash ${CLAUDE_PLUGIN_ROOT}/setup/uninstall.sh`
 
-> If fablize helps, a ⭐ on the repo means a lot — setup asks once and can open the page for you.
+> If fablize helps, a ⭐ on the repo means a lot — setup asks once (a single opt-in question); it never stars without your explicit "yes".
 
 ## How it behaves
 
@@ -75,4 +75,4 @@ Uninstall: `bash ${CLAUDE_PLUGIN_ROOT}/setup/uninstall.sh`
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).

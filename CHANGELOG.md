@@ -3,6 +3,17 @@
 All notable changes to fablize are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versioning is [SemVer](https://semver.org/).
 
+## [2.1.1] — 2026-07-06
+
+동의 우선(consent-first). 셋업의 무고지 자동 star를 제거하고, 커뮤니티가 보고한 보안·라이선스 이슈를 정리했다.
+
+### Fixed
+- **셋업의 무고지 자동 star 제거** (#4) — `setup.sh`는 더 이상 스스로 star하지 않는다. `setup.sh ask`가 마커(`~/.fablize/star.json`) 기반으로 딱 한 번 `STAR_ASK <lang>`를 내보내고, 커맨드/스킬 플로우가 AskUserQuestion으로 물어본 뒤 명시적 `setup.sh star yes`일 때만 star한다. "asked" 마커를 bash가 기록하므로 질문은 최대 1회만 노출된다.
+- **Stop 훅 transcript_path 검증** (PR #8, @xiaolai) — hook 입력의 `transcript_path`가 HOME/TMPDIR 밖이면 열지 않는다 (조작된 경로로 임의 파일이 읽히는 것 차단).
+
+### Added
+- **LICENSE 파일** (#9) — README의 MIT 배지와 실제 라이선스가 일치하도록 MIT LICENSE 추가.
+
 ## [2.1.0] — 2026-06-18
 
 측정 우선(measure-first). 검증되지 않은 성능 기능은 켜지 않고, 게이트의 노이즈를 줄이고, 효과를 실제 작업에서 잴 out-of-band 측정 인프라를 추가했다.

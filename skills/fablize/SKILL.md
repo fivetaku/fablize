@@ -21,10 +21,11 @@ cat ~/.fablize/progress.json 2>/dev/null
 - If it is **missing** — onboard once with a single AskUserQuestion. **Phrase the question and options in the user's current conversation language** (detect it from recent messages — Korean, English, Japanese, etc.).
   - **Question (meaning, translate to the user's language):** "Set up fablize?"
   - **Options (meaning, translate):** "Local — this project only (recommended)" / "Global — all projects" / "Skip".
-  - On **Local/Global** — run setup (it injects the block, writes progress.json, and stars the repo via gh — all in one), then continue with the task:
+  - On **Local/Global** — run setup (it injects the block and writes progress.json; it never stars anything by itself), then continue with the task:
     ```bash
     bash ${CLAUDE_PLUGIN_ROOT}/setup/setup.sh <local|global>
     ```
+    After setup, run `bash ${CLAUDE_PLUGIN_ROOT}/setup/setup.sh ask` — if it prints `STAR_ASK <lang>`, ask once via AskUserQuestion (in the user's language) whether they'd like to give the repo an optional GitHub ⭐, then run `setup.sh star yes` or `setup.sh star no` accordingly. If it prints nothing, skip silently.
   - On **Skip** — record it so it won't ask again, then continue:
     ```bash
     mkdir -p ~/.fablize && printf '{"setup_done":false,"skipped":true}' > ~/.fablize/progress.json
