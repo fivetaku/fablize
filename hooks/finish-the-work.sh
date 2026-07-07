@@ -56,14 +56,22 @@ if last_had_tool or not last_text:
 # Inspect only the closing paragraph, not the whole report.
 tail = last_text[-400:]
 
-# Unfulfilled-promise patterns (English + Korean). Future/intent only; past tense is excluded.
-promise = re.search(
+# Unfulfilled-promise patterns, English + Korean. Future/intent only; past
+# tense is excluded by construction (the Korean "-겠-" future/intention
+# morpheme never appears in past-tense forms like "했습니다"/"완료했습니다").
+promise_en = re.search(
     r"\b(I'?ll|I will|let me|next,? I|now I'?ll)\b[^.]{0,60}\b(now|next|then|implement|create|write|add|run|fix|save|build|start|proceed)\b",
     tail, re.IGNORECASE)
+promise_ko = re.search(
+    r"(이제|이어서|다음으로|곧|바로)?[^.\n]{0,30}?"
+    r"(하겠습니다|할게요|하겠어요|진행하겠|시작하겠|작성하겠|만들겠|실행하겠|수정하겠|저장하겠)",
+    tail)
+promise = promise_en or promise_ko
 
 # A legitimate stop that ends by asking the user passes through.
 asks_user = re.search(
-    r"(\?|shall i|would you like|do you want|let me know|which option)",
+    r"(\?|shall i|would you like|do you want|let me know|which option|"
+    r"할까요|괜찮을까|어떻게 할|어느 것|선택해)",
     tail, re.IGNORECASE)
 
 if promise and not asks_user:
