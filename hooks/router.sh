@@ -19,14 +19,16 @@ emit=""
 add() { emit="${emit:+$emit
 }$1"; }
 
-# Debugging / root-cause → investigation-protocol
+# Debugging / root-cause → investigation-protocol (English + Korean signals)
 case "$low" in
-  *debug*|*bug*|*error*|*traceback*|*"stack trace"*|*crash*|*failing*|*"not working"*)
+  *debug*|*bug*|*error*|*traceback*|*"stack trace"*|*crash*|*failing*|*"not working"*|\
+  *버그*|*에러*|*오류*|*디버그*|*고쳐*|*"안 돼"*|*안돼*|*트레이스백*|*실패*|*죽*)
     add "[fablize:investigation] Debugging/root-cause signal — follow $PACKS/investigation-protocol.txt: reproduce first, form 3+ competing hypotheses, gather evidence per hypothesis, trace the full causal chain, verify before/after, and report the hypotheses you rejected." ;;
 esac
-# Render/executable artifacts → verification-grounding
+# Render/executable artifacts → verification-grounding (English + Korean signals)
 case "$low" in
-  *html*|*svg*|*game*|*canvas*|*chart*|*render*|*website*|*webpage*)
+  *html*|*svg*|*game*|*canvas*|*chart*|*render*|*website*|*webpage*|\
+  *화면*|*렌더*|*차트*|*슬라이드*|*웹페이지*|*미리보기*)
     add "[fablize:grounding] Render/executable artifact signal — follow $PACKS/verification-grounding-pack.txt grounding loop: run it in the real renderer, observe the actual output, fix what the observation reveals, then re-run. A static check is not observation." ;;
 esac
 
