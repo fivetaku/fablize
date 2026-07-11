@@ -20,13 +20,95 @@ case "$tpath" in
     *) exit 0 ;;
 esac
 
-# Extract the last assistant message's text and whether it ended with a tool call.
+# Extract the last assistant message's text, whether it ended with a tool call,
+# and whether the recent transcript shows an async Agent still running.
 python3 - "$tpath" <<'PY'
 import sys, json, re
 
 path = sys.argv[1]
+records = []
 last_text = ""
 last_had_tool = False
+
+
+def content_blocks(msg):
+    content = msg.get("content", []) if isinstance(msg, dict) else []
+    if isinstance(content, list):
+        return [b for b in content if isinstance(b, dict)]
+    if isinstance(content, str):
+        return [{"type": "text", "text": content}]
+    return []
+
+
+def text_from(value):
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list):
+        return "\n".join(text_from(v) for v in value)
+    if isinstance(value, dict):
+        parts = []
+        for key in ("text", "content", "message"):
+            if key in value:
+                parts.append(text_from(value[key]))
+        return "\n".join(p for p in parts if p)
+    return ""
+
+
+ASYNC_AGENT_LAUNCH = re.compile(
+    r"\b(async\s+agent\s+launched|agent\s+task\s+launched|launched\s+in\s+background|running\s+in\s+background)\b",
+    re.IGNORECASE,
+)
+AGENT_COMPLETE = re.compile(
+    r"(\b(agent|background agent|async agent)\b.{0,120}\b(completed|finished|done|returned|reported|report back|results? (are|is )?ready)\b)"
+    r"|(\b(completed|finished|returned)\b.{0,120}\b(agent|background agent|async agent)\b)"
+    r"|(에이전트.{0,80}(완료|끝|보고|결과|도착))"
+    r"|((완료|도착).{0,80}에이전트)",
+    re.IGNORECASE,
+)
+
+
+def has_inflight_background_agent(items):
+    agent_tool_ids = set()
+    in_flight = set()
+    unknown_launches = 0
+
+    for obj in items:
+        msg = obj.get("message", obj) if isinstance(obj, dict) else {}
+        blocks = content_blocks(msg)
+        for block in blocks:
+            btype = block.get("type")
+            if btype == "tool_use" and block.get("name") == "Agent":
+                tool_id = block.get("id")
+                if tool_id:
+                    agent_tool_ids.add(tool_id)
+                continue
+
+            text = text_from(block)
+            if btype == "tool_result":
+                tool_use_id = block.get("tool_use_id")
+                is_agent_result = bool(tool_use_id and tool_use_id in agent_tool_ids)
+                is_async_launch = bool(ASYNC_AGENT_LAUNCH.search(text))
+                if is_agent_result and is_async_launch:
+                    in_flight.add(tool_use_id)
+                    continue
+                if is_async_launch:
+                    # Be defensive about transcript variants that omit tool_use_id.
+                    unknown_launches += 1
+                    in_flight.add(f"unknown:{unknown_launches}")
+                    continue
+                if tool_use_id and tool_use_id in in_flight and AGENT_COMPLETE.search(text):
+                    in_flight.discard(tool_use_id)
+                    continue
+
+            # Completion notifications are separate transcript messages in some
+            # clients. If one appears after a launch, the turn is no longer a
+            # valid wait/yield state for finish-the-work.
+            if in_flight and text and not ASYNC_AGENT_LAUNCH.search(text) and AGENT_COMPLETE.search(text):
+                in_flight.clear()
+
+    return bool(in_flight)
+
+
 try:
     with open(path) as f:
         for line in f:
@@ -37,6 +119,7 @@ try:
                 obj = json.loads(line)
             except json.JSONDecodeError:
                 continue
+            records.append(obj)
             msg = obj.get("message", obj)
             if obj.get("type") == "assistant" or msg.get("role") == "assistant":
                 content = msg.get("content", [])
@@ -51,6 +134,11 @@ except Exception:
 
 # Ended with a tool call (still working) or with no text -> not an early stop.
 if last_had_tool or not last_text:
+    sys.exit(0)
+
+# Waiting for an already-launched background Agent is a legitimate yield point,
+# not an unfulfilled promise to do work in this turn.
+if has_inflight_background_agent(records):
     sys.exit(0)
 
 # Inspect only the closing paragraph, not the whole report.
