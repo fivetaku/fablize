@@ -65,9 +65,11 @@ def command_from_input(input_data: dict[str, Any]) -> str:
     return ""
 
 
-def exit_success(input_data: dict[str, Any], text: str) -> bool | None:
-    candidates = [input_data, input_data.get("tool_response")]
-    for candidate in candidates:
+def explicit_status(input_data: dict[str, Any]) -> bool | None:
+    """Machine-readable success/failure from the tool_response (exit code / success
+    bool), or None when the host provides no such field. This is ground truth; it
+    is NOT inferred from output text."""
+    for candidate in (input_data, input_data.get("tool_response")):
         if isinstance(candidate, dict):
             for key in ("success", "ok"):
                 if isinstance(candidate.get(key), bool):
@@ -78,6 +80,16 @@ def exit_success(input_data: dict[str, Any], text: str) -> bool | None:
                     return value == 0
                 if isinstance(value, str) and value.isdigit():
                     return int(value) == 0
+    return None
+
+
+def exit_success(input_data: dict[str, Any], text: str) -> bool | None:
+    status = explicit_status(input_data)
+    if status is not None:
+        return status
+    # No machine-readable status: fall back to text heuristics. Used only for
+    # verification-command bookkeeping, NOT for the failure nudge (see
+    # detect_failure), which must never guess a failure from output text.
     if FAILURE_RE.search(text):
         return False
     if SUCCESS_RE.search(text):
@@ -90,9 +102,14 @@ def is_verification_command(command: str) -> bool:
 
 
 def detect_failure(input_data: dict[str, Any]) -> dict[str, Any] | None:
-    text = response_text(input_data.get("tool_response", input_data))
-    success = exit_success(input_data, text)
-    if success is False or (success is None and FAILURE_RE.search(text)):
+    # Fire ONLY on a machine-confirmed failure (nonzero exit / success:false).
+    # We deliberately do NOT infer failure from output text: hosts that omit an
+    # exit code (e.g. Bash here) made the old text heuristic flag every benign
+    # 'No such file or directory' / 'error:' / 'failed' string in stdout — greps,
+    # log reads, and SSM runs that succeeded. Verification bookkeeping keeps its
+    # text fallback via exit_success; the failure nudge must be ground-truth only.
+    if explicit_status(input_data) is False:
+        text = response_text(input_data.get("tool_response", input_data))
         return {"kind": "tool-result", "summary": redact(text or command_from_input(input_data), 240)}
     return None
 
