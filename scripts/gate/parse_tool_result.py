@@ -27,6 +27,9 @@ FAILURE_RE = re.compile(
     r"tests? failed|build failed|lint failed)"
 )
 SUCCESS_RE = re.compile(r"(?i)\b(passed|success|succeeded|0 failed|build completed|done|valid)\b")
+CONTENT_TOOLS = frozenset(
+    {"Edit", "Write", "NotebookEdit", "MultiEdit", "Read", "NotebookRead"}
+)
 MUTATING_BASH_RE = re.compile(
     r"(?i)\b(apply_patch|python\s+.*\s+-m\s+compileall|chmod|mkdir|mv|cp|rm|touch|"
     r"npm\s+run\s+build|pnpm\s+build|yarn\s+build)\b"
@@ -65,7 +68,8 @@ def command_from_input(input_data: dict[str, Any]) -> str:
     return ""
 
 
-def exit_success(input_data: dict[str, Any], text: str) -> bool | None:
+def structural_success(input_data: dict[str, Any]) -> bool | None:
+    """Success/failure from explicit result fields only — never from response text."""
     candidates = [input_data, input_data.get("tool_response")]
     for candidate in candidates:
         if isinstance(candidate, dict):
@@ -78,6 +82,13 @@ def exit_success(input_data: dict[str, Any], text: str) -> bool | None:
                     return value == 0
                 if isinstance(value, str) and value.isdigit():
                     return int(value) == 0
+    return None
+
+
+def exit_success(input_data: dict[str, Any], text: str) -> bool | None:
+    structural = structural_success(input_data)
+    if structural is not None:
+        return structural
     if FAILURE_RE.search(text):
         return False
     if SUCCESS_RE.search(text):
@@ -91,8 +102,15 @@ def is_verification_command(command: str) -> bool:
 
 def detect_failure(input_data: dict[str, Any]) -> dict[str, Any] | None:
     text = response_text(input_data.get("tool_response", input_data))
-    success = exit_success(input_data, text)
-    if success is False or (success is None and FAILURE_RE.search(text)):
+    structural = structural_success(input_data)
+    if structural is False:
+        return {"kind": "tool-result", "summary": redact(text or command_from_input(input_data), 240)}
+    # For file-content tools the response text IS the file, not a command log, so
+    # words like "failed" or "3 errors" inside the content are not tool failures.
+    # These tools signal failure structurally (handled above), never in prose.
+    if str(input_data.get("tool_name") or "") in CONTENT_TOOLS:
+        return None
+    if structural is None and FAILURE_RE.search(text):
         return {"kind": "tool-result", "summary": redact(text or command_from_input(input_data), 240)}
     return None
 
