@@ -27,6 +27,10 @@ FAILURE_RE = re.compile(
     r"tests? failed|build failed|lint failed)"
 )
 SUCCESS_RE = re.compile(r"(?i)\b(passed|success|succeeded|0 failed|build completed|done|valid)\b")
+# Claude Code delivers a failed Bash call's tool_response as a plain string
+# beginning "Exit code N ..." (observed in real transcripts, 2026-08-09) —
+# anchored so echoed file/grep content can't match mid-text.
+EXIT_CODE_RE = re.compile(r"(?is)^\s*(?:error:\s*)?exit code\s+[1-9]")
 MUTATING_BASH_RE = re.compile(
     r"(?i)\b(apply_patch|python\s+.*\s+-m\s+compileall|chmod|mkdir|mv|cp|rm|touch|"
     r"npm\s+run\s+build|pnpm\s+build|yarn\s+build)\b"
@@ -65,7 +69,7 @@ def command_from_input(input_data: dict[str, Any]) -> str:
     return ""
 
 
-def exit_success(input_data: dict[str, Any], text: str) -> bool | None:
+def _explicit_success(input_data: dict[str, Any]) -> bool | None:
     candidates = [input_data, input_data.get("tool_response")]
     for candidate in candidates:
         if isinstance(candidate, dict):
@@ -78,6 +82,22 @@ def exit_success(input_data: dict[str, Any], text: str) -> bool | None:
                     return value == 0
                 if isinstance(value, str) and value.isdigit():
                     return int(value) == 0
+    return None
+
+
+def _stderr_text(input_data: dict[str, Any], limit: int = 4000) -> str:
+    response = input_data.get("tool_response")
+    if isinstance(response, dict):
+        stderr = response.get("stderr")
+        if stderr:
+            return response_text(stderr, limit)
+    return ""
+
+
+def exit_success(input_data: dict[str, Any], text: str) -> bool | None:
+    explicit = _explicit_success(input_data)
+    if explicit is not None:
+        return explicit
     if FAILURE_RE.search(text):
         return False
     if SUCCESS_RE.search(text):
@@ -90,10 +110,21 @@ def is_verification_command(command: str) -> bool:
 
 
 def detect_failure(input_data: dict[str, Any]) -> dict[str, Any] | None:
-    text = response_text(input_data.get("tool_response", input_data))
-    success = exit_success(input_data, text)
-    if success is False or (success is None and FAILURE_RE.search(text)):
+    # Text-based failure guessing must stay off file-tool responses and Bash
+    # stdout: Edit/Write echo file content and Bash stdout echoes grepped text,
+    # so FAILURE_RE against them flags successful calls as failures.
+    explicit = _explicit_success(input_data)
+    if explicit is False:
+        text = response_text(input_data.get("tool_response", input_data))
         return {"kind": "tool-result", "summary": redact(text or command_from_input(input_data), 240)}
+    if explicit is None:
+        response = input_data.get("tool_response")
+        if isinstance(response, str) and EXIT_CODE_RE.match(response):
+            return {"kind": "tool-result", "summary": redact(response, 240)}
+        if str(input_data.get("tool_name") or "") == "Bash":
+            stderr = _stderr_text(input_data)
+            if stderr and FAILURE_RE.search(stderr):
+                return {"kind": "tool-result", "summary": redact(stderr, 240)}
     return None
 
 
