@@ -56,6 +56,32 @@ def response_text(value: Any, limit: int = 4000) -> str:
     return redact(" ".join(parts), limit)
 
 
+def stderr_text(input_data: dict[str, Any], limit: int = 4000) -> str:
+    """Only the error stream. A successful command's stdout routinely contains the
+    words 'failed'/'error'/'failure' (commit messages, gitleaks output, grep of a doc
+    that discusses failures); matching the failure regex against stdout produced a
+    constant stream of false positives. Genuine failures surface on stderr."""
+    parts: list[str] = []
+    seen: list[dict[str, Any]] = []
+
+    def walk(item: Any) -> None:
+        if isinstance(item, dict):
+            for key in ("stderr", "error"):
+                value = item.get(key)
+                if isinstance(value, str):
+                    parts.append(value)
+            for child in item.values():
+                if isinstance(child, (dict, list)) and child not in seen:
+                    seen.append(child)
+                    walk(child)
+        elif isinstance(item, list):
+            for child in item[:20]:
+                walk(child)
+
+    walk(input_data)
+    return redact(" ".join(parts), limit)
+
+
 def command_from_input(input_data: dict[str, Any]) -> str:
     tool_input = input_data.get("tool_input")
     if isinstance(tool_input, dict):
@@ -78,7 +104,9 @@ def exit_success(input_data: dict[str, Any], text: str) -> bool | None:
                     return value == 0
                 if isinstance(value, str) and value.isdigit():
                     return int(value) == 0
-    if FAILURE_RE.search(text):
+    # No structured exit status. Only stderr may indicate failure; stdout routinely
+    # carries the failure vocabulary on fully successful commands.
+    if FAILURE_RE.search(stderr_text(input_data)):
         return False
     if SUCCESS_RE.search(text):
         return True
@@ -92,8 +120,8 @@ def is_verification_command(command: str) -> bool:
 def detect_failure(input_data: dict[str, Any]) -> dict[str, Any] | None:
     text = response_text(input_data.get("tool_response", input_data))
     success = exit_success(input_data, text)
-    if success is False or (success is None and FAILURE_RE.search(text)):
-        return {"kind": "tool-result", "summary": redact(text or command_from_input(input_data), 240)}
+    if success is False or (success is None and FAILURE_RE.search(stderr_text(input_data))):
+        return {"kind": "tool-result", "summary": redact(stderr_text(input_data) or command_from_input(input_data), 240)}
     return None
 
 
