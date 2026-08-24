@@ -89,11 +89,70 @@ def is_verification_command(command: str) -> bool:
     return bool(VERIFY_RE.search(command or ""))
 
 
+def structured_exit(input_data: dict[str, Any]) -> bool | None:
+    """Exit status from STRUCTURED fields only (success/ok booleans, exit codes).
+
+    Unlike exit_success() this never guesses from output text. Text matching is
+    correct for verification_record() -- there the command was already known to
+    be a test/build/lint run -- but wrong for detect_failure(), which sees every
+    Bash call: reading or grepping source that merely mentions "failed" or
+    "error:" is not a failure. Returns None when no structured signal exists.
+    """
+    for candidate in (input_data, input_data.get("tool_response")):
+        if isinstance(candidate, dict):
+            for key in ("success", "ok"):
+                if isinstance(candidate.get(key), bool):
+                    return bool(candidate[key])
+            for key in ("exit_code", "exitCode", "returncode", "status"):
+                value = candidate.get(key)
+                if isinstance(value, int):
+                    return value == 0
+                if isinstance(value, str) and value.isdigit():
+                    return int(value) == 0
+    return None
+
+
+def error_stream_text(value: Any, limit: int = 4000) -> str:
+    """Text from error-bearing fields (stderr/error) only -- never stdout.
+
+    Command OUTPUT lands in stdout; a command's own diagnostics land in stderr.
+    Scanning only the latter is what separates "this run failed" from "this file
+    talks about failures".
+    """
+    parts: list[str] = []
+
+    def walk(item: Any) -> None:
+        if len(" ".join(parts)) > limit:
+            return
+        if isinstance(item, dict):
+            for key in ("stderr", "error"):
+                child = item.get(key)
+                if isinstance(child, str):
+                    parts.append(child)
+                elif child is not None:
+                    walk(child)
+            for key in ("tool_response", "response", "result"):
+                if key in item:
+                    walk(item[key])
+        elif isinstance(item, list):
+            for child in item[:20]:
+                walk(child)
+
+    walk(value)
+    return redact(" ".join(parts), limit)
+
+
 def detect_failure(input_data: dict[str, Any]) -> dict[str, Any] | None:
-    text = response_text(input_data.get("tool_response", input_data))
-    success = exit_success(input_data, text)
-    if success is False or (success is None and FAILURE_RE.search(text)):
+    success = structured_exit(input_data)
+    if success is True:
+        return None
+    if success is False:
+        text = response_text(input_data.get("tool_response", input_data))
         return {"kind": "tool-result", "summary": redact(text or command_from_input(input_data), 240)}
+    # No structured signal: trust stderr only, never stdout.
+    err = error_stream_text(input_data.get("tool_response", input_data))
+    if err.strip() and FAILURE_RE.search(err):
+        return {"kind": "tool-result", "summary": redact(err, 240)}
     return None
 
 

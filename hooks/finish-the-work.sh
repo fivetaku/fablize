@@ -1,8 +1,8 @@
 #!/bin/bash
 # finish-the-work.sh — Stop hook
 # Detects early termination where the agent only PROMISES work without doing it, and re-engages it.
-# Deterministic (regex). Infinite loops are guarded by stop_hook_active.
-# stdin: JSON { transcript_path, stop_hook_active, ... }
+# Deterministic (regex). Infinite loops are guarded by stop_hook_active AND a cumulative per-session cap.
+# stdin: JSON { transcript_path, stop_hook_active, session_id, cwd, ... }
 # stdout: {"decision":"block","reason":"..."} to continue, otherwise empty (exit 0)
 
 set -e
@@ -20,11 +20,51 @@ case "$tpath" in
     *) exit 0 ;;
 esac
 
+# Session identity for the cumulative block cap (mirrors ledger.ledger_key).
+sid=$(printf '%s' "$input" | python3 -c "import sys,json; print(json.load(sys.stdin).get('session_id') or 'no-session')" 2>/dev/null || echo "no-session")
+scwd=$(printf '%s' "$input" | python3 -c "import sys,json; print(json.load(sys.stdin).get('cwd') or '')" 2>/dev/null || echo "")
+
 # Extract the last assistant message's text and whether it ended with a tool call.
-python3 - "$tpath" <<'PY'
+python3 - "$tpath" "$sid" "$scwd" <<'PY'
 import sys, json, re
 
 path = sys.argv[1]
+session_id = sys.argv[2] if len(sys.argv) > 2 else "no-session"
+cwd = sys.argv[3] if len(sys.argv) > 3 else ""
+
+# Cumulative cap, matching the sibling gates (gate_stop MAX_STOP_BLOCKS=2,
+# context-guard MAX_BLOCKS=2). stop_hook_active only alternates block/allow, so
+# without this a phrasing that keeps tripping the regex blocks on every other
+# Stop forever. After MAX_FINISH_BLOCKS the guard steps aside for the session.
+MAX_FINISH_BLOCKS = 2
+
+
+def _counter_path():
+    import hashlib, os
+    root = os.environ.get("FABLIZE_DATA") or os.path.join(os.path.expanduser("~"), ".fablize")
+    key = hashlib.sha256(f"{session_id}|{cwd}".encode("utf-8", "replace")).hexdigest()[:24]
+    return os.path.join(root, "finish-blocks", f"{key}.json")
+
+
+def _blocks_so_far():
+    try:
+        with open(_counter_path()) as fh:
+            return int(json.load(fh).get("blocks") or 0)
+    except Exception:
+        return 0
+
+
+def _record_block(n):
+    import os
+    p = _counter_path()
+    try:
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        with open(p, "w") as fh:
+            json.dump({"blocks": n}, fh)
+    except Exception:
+        pass  # fail open: a counter we cannot persist must not break the hook
+
+
 last_text = ""
 last_had_tool = False
 try:
@@ -67,11 +107,17 @@ asks_user = re.search(
     tail, re.IGNORECASE)
 
 if promise and not asks_user:
+    seen = _blocks_so_far()
+    if seen >= MAX_FINISH_BLOCKS:
+        # Cap reached: step aside rather than blocking this session forever.
+        sys.exit(0)
+    _record_block(seen + 1)
     out = {
         "decision": "block",
         "reason": "Your previous response ended by stating an intent to do work without actually doing it. "
                   "Do that work now with tool calls. End the turn only when the task is complete or you are "
-                  "blocked on input that only the user can provide."
+                  "blocked on input that only the user can provide. "
+                  f"(Block {seen + 1}/{MAX_FINISH_BLOCKS})"
     }
     print(json.dumps(out, ensure_ascii=False))
 sys.exit(0)
