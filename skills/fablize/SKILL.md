@@ -44,10 +44,11 @@ python3 ${CLAUDE_PLUGIN_ROOT}/scripts/goals.py next         # activate a story +
 # ... work that story only ...
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/goals.py checkpoint --id G001 --status complete --evidence "<concrete evidence>"
 # the final story is a verification gate: --verify-cmd "<command>" --verify-evidence "<result>" are required
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/goals.py add --goal "title::..." [--after G002]  # scope grew mid-task
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/goals.py status       # first command when resuming
 ```
 
-Rules: `complete` requires non-empty evidence; the final goal cannot complete without a verify command and its result (the engine refuses). If blocked, record `--status blocked` and report. Single-step tasks skip this loop.
+Rules: `complete` requires non-empty evidence; the final goal cannot complete without a verify command and its result (the engine refuses). If blocked, record `--status blocked` and report. Single-step tasks skip this loop. When the user adds work mid-task, extend the live plan with `add` instead of recreating it: new ids continue from the highest existing id (nothing is renumbered, so evidence that cites an id stays valid), `--after` places a story right after the named one, and if the new story lands last the verification gate moves to it.
 
 ## 2. Deep investigation (debugging / unknown cause / review)
 

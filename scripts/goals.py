@@ -9,6 +9,8 @@ Design (behavior only):
 
 Usage:
   goals.py create --brief "..." --goal "title::objective" [--goal ...]
+  goals.py add --goal "title::objective" [--goal ...] [--after G003]
+                                      # extend a live plan; IDs continue from the highest, never renumber
   goals.py next                       # activate the next story + print a handoff
   goals.py checkpoint --id G001 --status complete|failed|blocked --evidence "..."
                       [--verify-cmd "<command run>" --verify-evidence "<result>"]   # required on the final story
@@ -64,6 +66,40 @@ def cmd_create(a):
     print(f"fablize: plan created — {len(goals)} stories")
     for g in goals:
         print(f"  {g['id']} {g['title']}: {g['objective']}")
+
+
+def cmd_add(a):
+    plan = load()
+    goals = plan["goals"]
+    if not a.goal:
+        sys.exit("fablize: at least one --goal is required.")
+    old_final = goals[-1]["id"] if goals else None
+    n = max((int(g["id"][1:]) for g in goals if g["id"][1:].isdigit()), default=0)
+    new = []
+    for g in a.goal:
+        if "::" not in g:
+            sys.exit(f"fablize: --goal format is 'title::objective' — invalid: {g}")
+        title, obj = g.split("::", 1)
+        n += 1
+        new.append({"id": f"G{n:03d}", "title": title.strip(), "objective": obj.strip(),
+                    "status": "pending", "evidence": None})
+    if a.after:
+        idx = next((i for i, x in enumerate(goals) if x["id"] == a.after), None)
+        if idx is None:
+            sys.exit(f"fablize: {a.after} not found.")
+        goals[idx + 1:idx + 1] = new
+    else:
+        goals.extend(new)
+    save(plan)
+    log("goals_added", ids=[g["id"] for g in new], after=a.after or old_final)
+    where = f"after {a.after}" if a.after else "at the end"
+    print(f"fablize: added {len(new)} {'story' if len(new) == 1 else 'stories'} {where} — "
+          + ", ".join(g["id"] for g in new))
+    for g in new:
+        print(f"  {g['id']} {g['title']}: {g['objective']}")
+    if goals[-1]["id"] != old_final:
+        print(f"★ The final story is now {goals[-1]['id']} — the verification gate moved with it.")
+    print("Order: " + " → ".join(g["id"] for g in goals))
 
 
 def cmd_next(a):
@@ -125,6 +161,8 @@ def main():
     sub = p.add_subparsers(dest="cmd", required=True)
     c = sub.add_parser("create"); c.add_argument("--brief", required=True)
     c.add_argument("--goal", action="append", default=[]); c.add_argument("--force", action="store_true")
+    d = sub.add_parser("add"); d.add_argument("--goal", action="append", default=[])
+    d.add_argument("--after", default=None, help="insert after this story id (default: append at the end)")
     sub.add_parser("next")
     k = sub.add_parser("checkpoint"); k.add_argument("--id", required=True)
     k.add_argument("--status", required=True, choices=["complete", "failed", "blocked"])
@@ -132,7 +170,8 @@ def main():
     k.add_argument("--verify-evidence", dest="verify_evidence", default="")
     sub.add_parser("status")
     a = p.parse_args()
-    {"create": cmd_create, "next": cmd_next, "checkpoint": cmd_checkpoint, "status": cmd_status}[a.cmd](a)
+    {"create": cmd_create, "add": cmd_add, "next": cmd_next, "checkpoint": cmd_checkpoint,
+     "status": cmd_status}[a.cmd](a)
 
 
 if __name__ == "__main__":
