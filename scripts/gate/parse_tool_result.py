@@ -31,6 +31,7 @@ MUTATING_BASH_RE = re.compile(
     r"(?i)\b(apply_patch|python\s+.*\s+-m\s+compileall|chmod|mkdir|mv|cp|rm|touch|"
     r"npm\s+run\s+build|pnpm\s+build|yarn\s+build)\b"
 )
+EDIT_TOOLS = {"Edit", "Write", "NotebookEdit", "MultiEdit"}
 
 
 def response_text(value: Any, limit: int = 4000) -> str:
@@ -91,8 +92,11 @@ def is_verification_command(command: str) -> bool:
 
 def detect_failure(input_data: dict[str, Any]) -> dict[str, Any] | None:
     text = response_text(input_data.get("tool_response", input_data))
-    success = exit_success(input_data, text)
-    if success is False or (success is None and FAILURE_RE.search(text)):
+    # Edit-family responses echo the file (originalFile, newString), so a text scan
+    # would flag any file that contains words like "failed". Trust explicit fields only.
+    scan = "" if input_data.get("tool_name") in EDIT_TOOLS else text
+    success = exit_success(input_data, scan)
+    if success is False or (success is None and FAILURE_RE.search(scan)):
         return {"kind": "tool-result", "summary": redact(text or command_from_input(input_data), 240)}
     return None
 
@@ -105,7 +109,7 @@ def changed_paths(input_data: dict[str, Any]) -> list[str]:
         file_path = tool_input.get("file_path")
         if file_path:
             paths.append(str(file_path))
-    if tool_name in {"Edit", "Write", "NotebookEdit", "MultiEdit"}:
+    if tool_name in EDIT_TOOLS:
         return paths or ["edit"]
     return paths
 

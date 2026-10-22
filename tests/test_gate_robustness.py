@@ -97,6 +97,24 @@ run("gate_prompt.py", {"prompt": "thoroughly audit the security of this module",
 p_analysis = run("gate_stop.py", {"session_id": "G", "cwd": "/w", "stop_hook_active": False}, dd)
 check("deep analysis, no change -> allow (no false-positive nag)", not blocks(p_analysis))
 
+# --- H. a successful edit of a file that contains "failed" is not a tool failure ---
+FAIL_CTX = "fablize gate observed a tool failure"
+for tool in ("Edit", "Write", "NotebookEdit", "MultiEdit"):
+    dd = tempfile.mkdtemp(prefix="fz_")
+    resp = {"filePath": "notes.md", "oldString": "a", "newString": "b",
+            "originalFile": "the deploy failed\nerror: retry later\n", "structuredPatch": []}
+    p_edit = run("gate_post_tool.py", {"tool_name": tool, "tool_input": {"file_path": "notes.md"},
+                                       "tool_response": resp, "session_id": "H", "cwd": "/w"}, dd)
+    check(f"{tool} of a file containing 'failed' -> no failure", FAIL_CTX not in p_edit.stdout)
+dd = tempfile.mkdtemp(prefix="fz_")
+p_edit_err = run("gate_post_tool.py", {"tool_name": "Edit", "tool_input": {"file_path": "notes.md"},
+                                       "tool_response": {"success": False}, "session_id": "H2", "cwd": "/w"}, dd)
+check("Edit with success=false -> still a failure", FAIL_CTX in p_edit_err.stdout)
+dd = tempfile.mkdtemp(prefix="fz_")
+p_bash = run("gate_post_tool.py", {"tool_name": "Bash", "tool_input": {"command": "make"},
+                                   "tool_response": {"stdout": "build failed"}, "session_id": "H3", "cwd": "/w"}, dd)
+check("Bash output 'build failed' -> still a failure (text scan kept)", FAIL_CTX in p_bash.stdout)
+
 print("=" * 80)
 print("fablize observation gate — robustness / safety checks")
 print("=" * 80)
